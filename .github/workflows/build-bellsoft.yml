@@ -16,7 +16,6 @@ jobs:
     outputs:
       tomcat_version: ${{ steps.get_tomcat.outputs.version }}
       bellsoft_version: ${{ steps.get_bellsoft.outputs.version }}
-      bellsoft_short_version: ${{ steps.get_bellsoft.outputs.short_version }}
     steps:
       - name: Get latest Tomcat 9 version
         id: get_tomcat
@@ -28,13 +27,19 @@ jobs:
       - name: Get latest BellSoft JDK 8 version
         id: get_bellsoft
         run: |
-          # BellSoft JDK 8 latest version (8u432 as of 2024)
-          # https://github.com/bell-sw/Liberica/releases/tag/8u432%2B1
-          VERSION="8u432"
-          SHORT_VERSION="432"
+          # Fetch all releases and filter for JDK 8 versions (8uXXX+Y)
+          VERSION=$(curl -s "https://api.github.com/repos/bell-sw/Liberica/releases" | \
+            grep '"tag_name"' | \
+            grep -oE '"8u[0-9]+\+[0-9]+"' | \
+            tr -d '"' | \
+            sort -t'u' -k2 -V | \
+            tail -n 1)
+          if [ -z "$VERSION" ]; then
+            echo "Failed to get BellSoft JDK 8 version"
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "short_version=$SHORT_VERSION" >> $GITHUB_OUTPUT
-          echo "BellSoft JDK 8 version: $VERSION (build $SHORT_VERSION)"
+          echo "Latest BellSoft JDK 8 version: $VERSION"
 
   prepare-tomcat:
     needs: get-versions
@@ -78,13 +83,16 @@ jobs:
       - name: Download BellSoft JDK (${{ matrix.arch }})
         run: |
           VERSION="${{ needs.get-versions.outputs.bellsoft_version }}"
-          SHORT_VERSION="${{ needs.get-versions.outputs.bellsoft_short_version }}"
+          # 8u432+1 -> 8u432 (for filename)
+          JDK_VERSION=$(echo "$VERSION" | grep -oE '8u[0-9]+')
           if [ "${{ matrix.arch }}" == "amd64" ]; then
-            FILE="bellsoft-jdk${VERSION}-linux-x64.tar.gz"
+            FILE="bellsoft-jdk${JDK_VERSION}-linux-x64.tar.gz"
           else
-            FILE="bellsoft-jdk${VERSION}-linux-aarch64.tar.gz"
+            FILE="bellsoft-jdk${JDK_VERSION}-linux-aarch64.tar.gz"
           fi
-          URL="https://github.com/bell-sw/Liberica/releases/download/${VERSION}%2B1/$FILE"
+          # URL encode: 8u432+1 -> 8u432%2B1
+          ENCODED_VERSION=$(echo "$VERSION" | sed 's/+/%2B/')
+          URL="https://github.com/bell-sw/Liberica/releases/download/${ENCODED_VERSION}/$FILE"
           echo "Downloading: $URL"
           curl -L -o "$FILE" "$URL"
 
