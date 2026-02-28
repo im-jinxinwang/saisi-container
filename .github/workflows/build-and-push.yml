@@ -163,7 +163,7 @@ jobs:
           VERSION="${{ needs.get-versions.outputs.tomcat_version }}"
           REGISTRY="${{ env.REGISTRY }}"
           IMAGE_NAME="${{ env.IMAGE_NAME }}"
-          
+
           docker buildx imagetools create \
             -t "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
             "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-amd64" \

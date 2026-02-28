@@ -8,7 +8,6 @@ COPY ${JDK_TAR} /tmp/jdk.tar.gz
 COPY ${TOMCAT_TAR} /tmp/tomcat.tar.gz
 
 RUN mkdir -p /usr/local/jdk /tmp/nms && \
-    tar -zxf /tmp/jdk.tar.gz -C /usr/local/jdk --strip-components=1 && \
     tar -zxf /tmp/tomcat.tar.gz -C /tmp/nms --strip-components=1 && \
     rm -rf /usr/local/jdk/src.zip
 
