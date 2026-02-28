@@ -35,7 +35,7 @@ WORKDIR /home/${USERNAME}
 
 RUN sed -i 's|http://update.cs2c.com.cn:8080|https://update.cs2c.com.cn|g' /etc/yum.repos.d/kylin_*.repo && \
     yum makecache && \
-    yum install -y iputils telnet tcpdump vim iproute net-snmp-utils mariadb && \
+    yum install -y iputils telnet tcpdump vim iproute net-snmp-utils mariadb fontconfig mkfontscale && \
     yum clean all && rm -rf /var/cache/yum && \
     groupadd -g ${USER_GID} ${USERNAME} && \
     useradd -u ${USER_UID} -g ${USER_GID} -d /home/${USERNAME} -M ${USERNAME}
