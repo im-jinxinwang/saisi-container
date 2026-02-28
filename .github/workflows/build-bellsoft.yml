@@ -83,7 +83,6 @@ jobs:
       - name: Download BellSoft JDK (${{ matrix.arch }})
         run: |
           VERSION="${{ needs.get-versions.outputs.bellsoft_version }}"
-          # 8u482+10 -> 8u482+10 (keep full version for filename)
           if [ "${{ matrix.arch }}" == "amd64" ]; then
             FILE="bellsoft-jdk${VERSION}-linux-amd64-lite.tar.gz"
           else
@@ -105,9 +104,6 @@ jobs:
   build:
     needs: [get-versions, prepare-tomcat, prepare-bellsoft]
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -131,48 +127,25 @@ jobs:
           name: tomcat-package
           path: images/tomcat
 
-      - name: Download BellSoft JDK
+      - name: Download BellSoft JDK (amd64)
         uses: actions/download-artifact@v4
         with:
-          name: bellsoft-${{ matrix.arch }}
+          name: bellsoft-amd64
           path: images/tomcat
 
-      - name: Build and push image
+      - name: Download BellSoft JDK (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: bellsoft-arm64
+          path: images/tomcat
+
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
           context: images/tomcat
-          platforms: linux/${{ matrix.arch }}
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-bellsoft-${{ matrix.arch }}
-
-  create-manifest:
-    needs: [build, get-versions]
-    runs-on: ubuntu-24.04
-    if: success()
-    steps:
-      - name: Login to Alibaba Cloud Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALIYUN_USERNAME }}
-          password: ${{ secrets.ALIYUN_PASSWORD }}
-
-      - name: Create and push manifest
-        run: |
-          VERSION="${{ needs.get-versions.outputs.tomcat_version }}"
-          REGISTRY="${{ env.REGISTRY }}"
-          IMAGE_NAME="${{ env.IMAGE_NAME }}"
-
-          docker manifest rm "${REGISTRY}/${IMAGE_NAME}:${VERSION}-bellsoft" 2>/dev/null || true
-
-          docker manifest create "${REGISTRY}/${IMAGE_NAME}:${VERSION}-bellsoft" \
-            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-bellsoft-amd64" \
-            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-bellsoft-arm64"
-
-          docker manifest annotate "${REGISTRY}/${IMAGE_NAME}:${VERSION}-bellsoft" \
-            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-bellsoft-arm64" --arch arm64 --os linux
-
-          docker manifest push --purge "${REGISTRY}/${IMAGE_NAME}:${VERSION}-bellsoft"
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-bellsoft
