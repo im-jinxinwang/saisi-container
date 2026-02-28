@@ -1,4 +1,4 @@
-name: Build and Push Multi-arch Image
+name: Build and Push Dragonwell Image
 
 on:
   push:
