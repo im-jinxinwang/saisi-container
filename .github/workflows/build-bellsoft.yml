@@ -4,11 +4,6 @@ on:
   issues:
     types: [opened]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Tomcat version to build (e.g., 9.0.115)'
-        required: false
-        type: string
 
 env:
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
@@ -18,47 +13,15 @@ jobs:
   get-versions:
     runs-on: ubuntu-24.04
     outputs:
-      tomcat_version: ${{ steps.set_tomcat.outputs.version }}
+      tomcat_version: ${{ steps.get_tomcat.outputs.version }}
       bellsoft_version: ${{ steps.get_bellsoft.outputs.version }}
     steps:
-      - name: Get version from issue or use latest
-        id: get_version
-        run: |
-          VERSION=""
-          if [ "${{ github.event_name }}" = "issues" ]; then
-            # Try to get version from issue form body
-            VERSION=$(echo "${{ github.event.issue.body }}" | grep -oE 'Tomcat 版本号.*\n.*([0-9]+\.[0-9]+\.[0-9]+)' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-            if [ -z "$VERSION" ]; then
-              # Fallback: extract from issue title
-              VERSION=$(echo "${{ github.event.issue.title }}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-            fi
-            if [ -n "$VERSION" ]; then
-              echo "Using version from issue: $VERSION"
-            fi
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-            if [ -n "$VERSION" ]; then
-              echo "Using version from manual trigger: $VERSION"
-            fi
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-      
       - name: Get latest Tomcat 9 version
         id: get_tomcat
-        if: ${{ steps.get_version.outputs.version == '' }}
         run: |
           VERSION=$(curl -s https://dlcdn.apache.org/tomcat/tomcat-9/ | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+/' | tr -d 'v/' | sort -V | tail -n 1)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Latest Tomcat 9 version: $VERSION"
-
-      - name: Set final Tomcat version
-        id: set_tomcat
-        run: |
-          if [ "${{ steps.get_version.outputs.version }}" != "" ]; then
-            echo "version=${{ steps.get_version.outputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${{ steps.get_tomcat.outputs.version }}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Get latest BellSoft JDK 8 version
         id: get_bellsoft

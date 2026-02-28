@@ -33,10 +33,9 @@
 2. 点击 "New issue"
 3. 选择 "构建镜像" 模板
 4. 填写表单：
-   - **Tomcat 版本号**：例如 `9.0.115`
    - **JDK 类型**：可选 Dragonwell 8、BellSoft 8 或全部构建
    - **备注说明**：其他需要说明的信息（可选）
-5. 提交 issue 后自动触发构建
+5. 提交 issue 后自动触发构建，**始终使用最新版本**
 
 ### 手动触发
 
@@ -45,8 +44,7 @@
    - `Build and Push Dragonwell Image` (Dragonwell JDK)
    - `Build and Push BellSoft Image` (BellSoft JDK)
 3. 点击 "Run workflow"
-4. 输入版本号（可选，留空则使用最新版）
-5. 点击 "Run workflow"
+4. 点击 "Run workflow"，**始终使用最新版本**
 
 ## 拉取镜像
 
