@@ -148,4 +148,4 @@ jobs:
           build-args: |
             BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-bellsoft
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-b
