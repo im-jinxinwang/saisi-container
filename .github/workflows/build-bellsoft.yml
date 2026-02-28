@@ -16,6 +16,7 @@ jobs:
     outputs:
       tomcat_version: ${{ steps.get_tomcat.outputs.version }}
       bellsoft_version: ${{ steps.get_bellsoft.outputs.version }}
+      bellsoft_short_version: ${{ steps.get_bellsoft.outputs.short_version }}
     steps:
       - name: Get latest Tomcat 9 version
         id: get_tomcat
@@ -27,16 +28,13 @@ jobs:
       - name: Get latest BellSoft JDK 8 version
         id: get_bellsoft
         run: |
-          # Fetch latest Liberica 8 version from GitHub releases
-          TAG=$(curl -s "https://api.github.com/repos/bell-sw/Liberica/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-          # Filter for JDK 8 versions (8uXXX)
-          VERSION=$(echo "$TAG" | grep -oE '8u[0-9]+' | head -1)
-          if [ -z "$VERSION" ]; then
-            # Fallback: try to get from tags
-            VERSION=$(curl -s "https://api.github.com/repos/bell-sw/Liberica/tags" | grep '"name"' | grep -oE '"8u[0-9]+"' | head -1 | tr -d '"')
-          fi
+          # BellSoft JDK 8 latest version (8u432 as of 2024)
+          # https://github.com/bell-sw/Liberica/releases/tag/8u432%2B1
+          VERSION="8u432"
+          SHORT_VERSION="432"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Latest BellSoft JDK 8 version: $VERSION"
+          echo "short_version=$SHORT_VERSION" >> $GITHUB_OUTPUT
+          echo "BellSoft JDK 8 version: $VERSION (build $SHORT_VERSION)"
 
   prepare-tomcat:
     needs: get-versions
@@ -80,12 +78,13 @@ jobs:
       - name: Download BellSoft JDK (${{ matrix.arch }})
         run: |
           VERSION="${{ needs.get-versions.outputs.bellsoft_version }}"
+          SHORT_VERSION="${{ needs.get-versions.outputs.bellsoft_short_version }}"
           if [ "${{ matrix.arch }}" == "amd64" ]; then
-            FILE="bellsoft-jdk8u${VERSION#8u}-linux-amd64.tar.gz"
+            FILE="bellsoft-jdk${VERSION}-linux-x64.tar.gz"
           else
-            FILE="bellsoft-jdk8u${VERSION#8u}-linux-aarch64.tar.gz"
+            FILE="bellsoft-jdk${VERSION}-linux-aarch64.tar.gz"
           fi
-          URL="https://github.com/bell-sw/Liberica/releases/download/8u${VERSION#8u}/$FILE"
+          URL="https://github.com/bell-sw/Liberica/releases/download/${VERSION}%2B1/$FILE"
           echo "Downloading: $URL"
           curl -L -o "$FILE" "$URL"
 
@@ -93,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bellsoft-${{ matrix.arch }}
-          path: bellsoft-jdk8u*_linux-*.tar.gz
+          path: bellsoft-jdk*_linux-*.tar.gz
           retention-days: 1
 
   build:
