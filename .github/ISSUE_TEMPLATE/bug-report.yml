@@ -1,0 +1,30 @@
+---
+name: 问题反馈
+description: 反馈镜像使用中的问题
+title: "[问题] 简要描述问题"
+labels: ["bug"]
+body:
+  - type: input
+    id: image_version
+    attributes:
+      label: 镜像版本
+      description: 使用的镜像标签（例如：9.0.115-dw）
+      placeholder: "9.0.115-dw"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 请详细描述遇到的问题
+      placeholder: 包括错误信息、复现步骤等
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 请提供相关的错误日志
+      render: shell
+    validations:
+      required: false

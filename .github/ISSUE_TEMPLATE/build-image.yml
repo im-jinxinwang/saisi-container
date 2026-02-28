@@ -1,0 +1,34 @@
+---
+name: 构建镜像
+description: 请求构建新的 Docker 镜像版本
+title: "Build [版本号]"
+labels: ["build"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Tomcat 版本号
+      description: 请输入要构建的 Tomcat 版本（例如：9.0.115）
+      placeholder: "9.0.115"
+    validations:
+      required: true
+  - type: dropdown
+    id: jdk
+    attributes:
+      label: JDK 类型
+      description: 选择要构建的 JDK 版本
+      multiple: true
+      options:
+        - Dragonwell 8 (镜像标签：-dw)
+        - BellSoft 8 (镜像标签：-bs)
+        - 全部构建
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 备注说明
+      description: 其他需要说明的信息（可选）
+      placeholder: 例如：紧急构建、修复某个问题等
+    validations:
+      required: false

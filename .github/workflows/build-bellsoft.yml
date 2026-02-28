@@ -4,6 +4,11 @@ on:
   issues:
     types: [opened]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tomcat version to build (e.g., 9.0.115)'
+        required: false
+        type: string
 
 env:
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
@@ -21,10 +26,19 @@ jobs:
         run: |
           VERSION=""
           if [ "${{ github.event_name }}" = "issues" ]; then
-            # Extract version from issue title (e.g., "Build 9.0.115")
-            VERSION=$(echo "${{ github.event.issue.title }}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            # Try to get version from issue form body
+            VERSION=$(echo "${{ github.event.issue.body }}" | grep -oE 'Tomcat 版本号.*\n.*([0-9]+\.[0-9]+\.[0-9]+)' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            if [ -z "$VERSION" ]; then
+              # Fallback: extract from issue title
+              VERSION=$(echo "${{ github.event.issue.title }}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            fi
             if [ -n "$VERSION" ]; then
               echo "Using version from issue: $VERSION"
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            if [ -n "$VERSION" ]; then
+              echo "Using version from manual trigger: $VERSION"
             fi
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
