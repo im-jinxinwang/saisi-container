@@ -144,6 +144,7 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-dw-${{ matrix.arch }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.arch }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.arch }},mode=max
 
   create-manifest:
     needs: [build, get-versions]
@@ -164,7 +165,11 @@ jobs:
           REGISTRY="${{ env.REGISTRY }}"
           IMAGE_NAME="${{ env.IMAGE_NAME }}"
 
-          docker buildx imagetools create \
-            -t "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
+          docker manifest create "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
             "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-amd64" \
             "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-arm64"
+
+          docker manifest annotate "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
+            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-arm64" --arch arm64 --os linux
+
+          docker manifest push "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw"
