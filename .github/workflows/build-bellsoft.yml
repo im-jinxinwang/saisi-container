@@ -1,0 +1,146 @@
+name: Build and Push BellSoft Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  IMAGE_NAME: saisi/tomcat
+
+jobs:
+  get-versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      tomcat_version: ${{ steps.get_tomcat.outputs.version }}
+      bellsoft_version: ${{ steps.get_bellsoft.outputs.version }}
+    steps:
+      - name: Get latest Tomcat 9 version
+        id: get_tomcat
+        run: |
+          VERSION=$(curl -s https://dlcdn.apache.org/tomcat/tomcat-9/ | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+/' | tr -d 'v/' | sort -V | tail -n 1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest Tomcat 9 version: $VERSION"
+
+      - name: Get latest BellSoft JDK 8 version
+        id: get_bellsoft
+        run: |
+          # Fetch latest Liberica 8 version from GitHub releases
+          TAG=$(curl -s "https://api.github.com/repos/bell-sw/Liberica/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+          # Filter for JDK 8 versions (8uXXX)
+          VERSION=$(echo "$TAG" | grep -oE '8u[0-9]+' | head -1)
+          if [ -z "$VERSION" ]; then
+            # Fallback: try to get from tags
+            VERSION=$(curl -s "https://api.github.com/repos/bell-sw/Liberica/tags" | grep '"name"' | grep -oE '"8u[0-9]+"' | head -1 | tr -d '"')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest BellSoft JDK 8 version: $VERSION"
+
+  prepare-tomcat:
+    needs: get-versions
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Tomcat
+        run: |
+          VERSION="${{ needs.get-versions.outputs.tomcat_version }}"
+          TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-9/v$VERSION/bin/apache-tomcat-$VERSION.tar.gz"
+          curl -L -o "images/tomcat/scripts/apache-tomcat-$VERSION.tar.gz" "$TOMCAT_URL"
+
+      - name: Setup JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+
+      - name: Run Tomcat customization scripts
+        working-directory: images/tomcat/scripts
+        run: |
+          chmod +x *.sh
+          ./repack_tomcat.sh
+
+      - name: Upload customized Tomcat
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomcat-package
+          path: images/tomcat/scripts/saisi-apache-tomcat-${{ needs.get-versions.outputs.tomcat_version }}.tar.gz
+          retention-days: 1
+
+  prepare-bellsoft:
+    needs: get-versions
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Download BellSoft JDK (${{ matrix.arch }})
+        run: |
+          VERSION="${{ needs.get-versions.outputs.bellsoft_version }}"
+          if [ "${{ matrix.arch }}" == "amd64" ]; then
+            FILE="bellsoft-jdk8u${VERSION#8u}-linux-amd64.tar.gz"
+          else
+            FILE="bellsoft-jdk8u${VERSION#8u}-linux-aarch64.tar.gz"
+          fi
+          URL="https://github.com/bell-sw/Liberica/releases/download/8u${VERSION#8u}/$FILE"
+          echo "Downloading: $URL"
+          curl -L -o "$FILE" "$URL"
+
+      - name: Upload BellSoft JDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bellsoft-${{ matrix.arch }}
+          path: bellsoft-jdk8u*_linux-*.tar.gz
+          retention-days: 1
+
+  build:
+    needs: [get-versions, prepare-tomcat, prepare-bellsoft]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Alibaba Cloud Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Download customized Tomcat
+        uses: actions/download-artifact@v4
+        with:
+          name: tomcat-package
+          path: images/tomcat
+
+      - name: Download BellSoft JDK (amd64)
+        uses: actions/download-artifact@v4
+        with:
+          name: bellsoft-amd64
+          path: images/tomcat
+
+      - name: Download BellSoft JDK (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: bellsoft-arm64
+          path: images/tomcat
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v5
+        with:
+          context: images/tomcat
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-bellsoft
