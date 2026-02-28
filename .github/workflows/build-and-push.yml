@@ -163,6 +163,9 @@ jobs:
           REGISTRY="${{ env.REGISTRY }}"
           IMAGE_NAME="${{ env.IMAGE_NAME }}"
 
+          # Remove local manifest cache if exists
+          docker manifest rm "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" 2>/dev/null || true
+
           docker manifest create "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
             "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-amd64" \
             "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-arm64"
