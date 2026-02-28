@@ -1,12 +1,10 @@
 ARG BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
 FROM ${BASE_IMAGE} AS build
 
-ARG TOMCAT_TAR
-
-# Copy JDK tarballs for both architectures
+# Copy JDK and Tomcat tarballs
 COPY Alibaba_Dragonwell_Standard_*_x64_linux.tar.gz /tmp/jdk-amd64.tar.gz
 COPY Alibaba_Dragonwell_Standard_*_aarch64_linux.tar.gz /tmp/jdk-arm64.tar.gz
-COPY ${TOMCAT_TAR} /tmp/tomcat.tar.gz
+COPY saisi-apache-tomcat-*.tar.gz /tmp/tomcat.tar.gz
 
 # Detect architecture and use appropriate JDK
 RUN ARCH=$(uname -m) && \

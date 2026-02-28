@@ -37,8 +37,6 @@ jobs:
   prepare-tomcat:
     needs: get-versions
     runs-on: ubuntu-24.04
-    outputs:
-      tomcat_tar: saisi-apache-tomcat-${{ needs.get-versions.outputs.tomcat_version }}.tar.gz
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -140,6 +138,5 @@ jobs:
           push: true
           build-args: |
             BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
-            TOMCAT_TAR=${{ needs.prepare-tomcat.outputs.tomcat_tar }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-dw
