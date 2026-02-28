@@ -1,6 +1,7 @@
 # JDK files
 *.tar.gz
 *.zip
+*.sh
 
 # Build artifacts
 images/tomcat/scripts/*.tar.gz
