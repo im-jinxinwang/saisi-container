@@ -100,7 +100,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64, arm64]
-      fail-fast: false
+      fail-fast: true
 
     steps:
       - name: Checkout repository
@@ -148,7 +148,7 @@ jobs:
   create-manifest:
     needs: [build, get-versions]
     runs-on: ubuntu-24.04
-    if: always()
+    if: success()
 
     steps:
       - name: Login to Alibaba Cloud Container Registry
