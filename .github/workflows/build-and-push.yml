@@ -123,13 +123,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tomcat-package
-          path: .
+          path: images/tomcat
 
       - name: Download Dragonwell JDK
         uses: actions/download-artifact@v4
         with:
           name: dragonwell-${{ matrix.arch }}
-          path: .
+          path: images/tomcat
 
       - name: Build and push per-arch image
         uses: docker/build-push-action@v5
