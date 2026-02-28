@@ -97,11 +97,6 @@ jobs:
   build:
     needs: [get-versions, prepare-tomcat, prepare-dragonwell]
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
-      fail-fast: true
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -125,52 +120,28 @@ jobs:
           name: tomcat-package
           path: images/tomcat
 
-      - name: Download Dragonwell JDK
+      - name: Download Dragonwell JDK (amd64)
         uses: actions/download-artifact@v4
         with:
-          name: dragonwell-${{ matrix.arch }}
+          name: dragonwell-amd64
           path: images/tomcat
 
-      - name: Build and push per-arch image
+      - name: Download Dragonwell JDK (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: dragonwell-arm64
+          path: images/tomcat
+
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
           context: images/tomcat
-          platforms: linux/${{ matrix.arch }}
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
-            JDK_TAR=Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_${{ matrix.arch == 'amd64' && 'x64' || 'aarch64' }}_linux.tar.gz
+            JDK_TAR_AMD64=Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_x64_linux.tar.gz
+            JDK_TAR_ARM64=Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_aarch64_linux.tar.gz
             TOMCAT_TAR=${{ needs.prepare-tomcat.outputs.tomcat_tar }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-dw-${{ matrix.arch }}
-
-  create-manifest:
-    needs: [build, get-versions]
-    runs-on: ubuntu-24.04
-    if: success()
-
-    steps:
-      - name: Login to Alibaba Cloud Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALIYUN_USERNAME }}
-          password: ${{ secrets.ALIYUN_PASSWORD }}
-
-      - name: Create and push manifest
-        run: |
-          VERSION="${{ needs.get-versions.outputs.tomcat_version }}"
-          REGISTRY="${{ env.REGISTRY }}"
-          IMAGE_NAME="${{ env.IMAGE_NAME }}"
-
-          # Remove local manifest cache if exists
-          docker manifest rm "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" 2>/dev/null || true
-
-          docker manifest create "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
-            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-amd64" \
-            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-arm64"
-
-          docker manifest annotate "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
-            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-arm64" --arch arm64 --os linux
-
-          docker manifest push --purge "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw"
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-dw

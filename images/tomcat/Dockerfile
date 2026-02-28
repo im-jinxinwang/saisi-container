@@ -1,15 +1,27 @@
 ARG BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
 FROM ${BASE_IMAGE} AS build
 
-ARG JDK_TAR
+ARG JDK_TAR_AMD64
+ARG JDK_TAR_ARM64
 ARG TOMCAT_TAR
 
-COPY ${JDK_TAR} /tmp/jdk.tar.gz
+# Copy both JDK tarballs - buildx will only use the one for current platform
+COPY ${JDK_TAR_AMD64} /tmp/jdk-amd64.tar.gz
+COPY ${JDK_TAR_ARM64} /tmp/jdk-arm64.tar.gz
 COPY ${TOMCAT_TAR} /tmp/tomcat.tar.gz
 
-RUN mkdir -p /usr/local/jdk /tmp/nms && \
+# Detect architecture and use appropriate JDK
+RUN ARCH=$(uname -m) && \
+    mkdir -p /usr/local/jdk /tmp/nms && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        tar -zxf /tmp/jdk-amd64.tar.gz -C /usr/local/jdk --strip-components=1; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        tar -zxf /tmp/jdk-arm64.tar.gz -C /usr/local/jdk --strip-components=1; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
     tar -zxf /tmp/tomcat.tar.gz -C /tmp/nms --strip-components=1 && \
-    rm -rf /usr/local/jdk/src.zip
+    rm -rf /usr/local/jdk/src.zip /tmp/jdk-*.tar.gz /tmp/tomcat.tar.gz
 
 FROM ${BASE_IMAGE}
 
