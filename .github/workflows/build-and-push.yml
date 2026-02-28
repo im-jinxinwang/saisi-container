@@ -1,0 +1,170 @@
+name: Build and Push Multi-arch Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  IMAGE_NAME: saisi/tomcat
+
+jobs:
+  get-versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      tomcat_version: ${{ steps.get_tomcat.outputs.version }}
+      dragonwell_version: ${{ steps.get_dragonwell.outputs.version }}
+      dragonwell_tag: ${{ steps.get_dragonwell.outputs.tag }}
+    steps:
+      - name: Get latest Tomcat 9 version
+        id: get_tomcat
+        run: |
+          VERSION=$(curl -s https://dlcdn.apache.org/tomcat/tomcat-9/ | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+/' | tr -d 'v/' | sort -V | tail -n 1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest Tomcat 9 version: $VERSION"
+
+      - name: Get latest Dragonwell 8 version
+        id: get_dragonwell
+        run: |
+          TAG=$(curl -s "https://api.github.com/repos/dragonwell-project/dragonwell8/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+          VERSION=$(echo "$TAG" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Latest Dragonwell 8 version: $VERSION (tag: $TAG)"
+
+  prepare-tomcat:
+    needs: get-versions
+    runs-on: ubuntu-24.04
+    outputs:
+      tomcat_tar: saisi-apache-tomcat-${{ needs.get-versions.outputs.tomcat_version }}.tar.gz
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Tomcat
+        run: |
+          VERSION="${{ needs.get-versions.outputs.tomcat_version }}"
+          TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-9/v$VERSION/bin/apache-tomcat-$VERSION.tar.gz"
+          curl -L -o "images/tomcat/scripts/apache-tomcat-$VERSION.tar.gz" "$TOMCAT_URL"
+
+      - name: Setup JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+
+      - name: Run Tomcat customization scripts
+        working-directory: images/tomcat/scripts
+        run: |
+          chmod +x *.sh
+          ./repack_tomcat.sh
+
+      - name: Upload customized Tomcat
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomcat-package
+          path: images/tomcat/scripts/saisi-apache-tomcat-${{ needs.get-versions.outputs.tomcat_version }}.tar.gz
+          retention-days: 1
+
+  prepare-dragonwell:
+    needs: get-versions
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Download Dragonwell JDK (${{ matrix.arch }})
+        run: |
+          TAG="${{ needs.get-versions.outputs.dragonwell_tag }}"
+          if [ "${{ matrix.arch }}" == "amd64" ]; then
+            FILE="Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_x64_linux.tar.gz"
+          else
+            FILE="Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_aarch64_linux.tar.gz"
+          fi
+          URL="https://github.com/dragonwell-project/dragonwell8/releases/download/$TAG/$FILE"
+          echo "Downloading: $URL"
+          curl -L -o "$FILE" "$URL"
+
+      - name: Upload Dragonwell JDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dragonwell-${{ matrix.arch }}
+          path: Alibaba_Dragonwell_Standard_*_linux.tar.gz
+          retention-days: 1
+
+  build:
+    needs: [get-versions, prepare-tomcat, prepare-dragonwell]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Alibaba Cloud Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Download customized Tomcat
+        uses: actions/download-artifact@v4
+        with:
+          name: tomcat-package
+          path: .
+
+      - name: Download Dragonwell JDK
+        uses: actions/download-artifact@v4
+        with:
+          name: dragonwell-${{ matrix.arch }}
+          path: .
+
+      - name: Build and push per-arch image
+        uses: docker/build-push-action@v5
+        with:
+          context: images/tomcat
+          platforms: linux/${{ matrix.arch }}
+          push: true
+          build-args: |
+            BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
+            JDK_TAR=Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_${{ matrix.arch == 'amd64' && 'x64' || 'aarch64' }}_linux.tar.gz
+            TOMCAT_TAR=${{ needs.prepare-tomcat.outputs.tomcat_tar }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-dw-${{ matrix.arch }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.arch }}
+
+  create-manifest:
+    needs: [build, get-versions]
+    runs-on: ubuntu-24.04
+    if: always()
+
+    steps:
+      - name: Login to Alibaba Cloud Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Create and push manifest
+        run: |
+          VERSION="${{ needs.get-versions.outputs.tomcat_version }}"
+          REGISTRY="${{ env.REGISTRY }}"
+          IMAGE_NAME="${{ env.IMAGE_NAME }}"
+          
+          docker buildx imagetools create \
+            -t "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
+            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-amd64" \
+            "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-arm64"

@@ -1,0 +1,10 @@
+# JDK files
+*.tar.gz
+*.zip
+
+# Build artifacts
+images/tomcat/scripts/*.tar.gz
+
+# Temporary files
+*.tmp
+*.log
