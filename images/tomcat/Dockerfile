@@ -1,23 +1,29 @@
 ARG BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
 FROM ${BASE_IMAGE} AS build
 
-# Copy JDK tarballs (supports both Dragonwell and BellSoft)
-COPY *x64*.tar.gz /tmp/jdk-amd64.tar.gz
-COPY *aarch64*.tar.gz /tmp/jdk-arm64.tar.gz
-COPY saisi-apache-tomcat-*.tar.gz /tmp/tomcat.tar.gz
+# Copy JDK and Tomcat tarballs
+COPY --chown=root:root *.tar.gz /tmp/
 
-# Detect architecture and use appropriate JDK
+# Detect architecture and extract appropriate JDK
 RUN ARCH=$(uname -m) && \
     mkdir -p /usr/local/jdk /tmp/nms && \
+    # Find and extract JDK based on architecture
     if [ "$ARCH" = "x86_64" ]; then \
-        tar -zxf /tmp/jdk-amd64.tar.gz -C /usr/local/jdk --strip-components=1; \
+        JDK_FILE=$(ls /tmp/*x64*.tar.gz /tmp/*amd64*.tar.gz 2>/dev/null | head -1); \
     elif [ "$ARCH" = "aarch64" ]; then \
-        tar -zxf /tmp/jdk-arm64.tar.gz -C /usr/local/jdk --strip-components=1; \
+        JDK_FILE=$(ls /tmp/*aarch64*.tar.gz 2>/dev/null | head -1); \
     else \
         echo "Unsupported architecture: $ARCH" && exit 1; \
     fi && \
-    tar -zxf /tmp/tomcat.tar.gz -C /tmp/nms --strip-components=1 && \
-    rm -rf /usr/local/jdk/src.zip /tmp/jdk-*.tar.gz /tmp/tomcat.tar.gz
+    if [ -z "$JDK_FILE" ]; then \
+        echo "JDK file not found" && exit 1; \
+    fi && \
+    echo "Extracting JDK: $JDK_FILE" && \
+    tar -zxf "$JDK_FILE" -C /usr/local/jdk --strip-components=1 && \
+    # Extract Tomcat
+    TOMCAT_FILE=$(ls /tmp/saisi-apache-tomcat-*.tar.gz 2>/dev/null | head -1) && \
+    tar -zxf "$TOMCAT_FILE" -C /tmp/nms --strip-components=1 && \
+    rm -rf /usr/local/jdk/src.zip /tmp/*.tar.gz
 
 FROM ${BASE_IMAGE}
 
