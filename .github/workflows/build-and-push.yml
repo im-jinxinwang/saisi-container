@@ -170,4 +170,4 @@ jobs:
           docker manifest annotate "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw" \
             "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw-arm64" --arch arm64 --os linux
 
-          docker manifest push "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw"
+          docker manifest push --purge "${REGISTRY}/${IMAGE_NAME}:${VERSION}-dw"
