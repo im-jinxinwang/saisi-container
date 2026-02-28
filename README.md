@@ -1,51 +1,59 @@
 # saisi-container
 
-Docker image build scripts for Tomcat with multi-JDK support.
+基于 Apache Tomcat 的多 JDK 支持 Docker 镜像。
 
 ## Workflows
 
 ### Dragonwell JDK
 
 - **Workflow**: `.github/workflows/build-dragonwell.yml`
-- **Tag**: `v9.0.x-dw`
-- **JDK**: Alibaba Dragonwell 8 (auto-fetch latest)
+- **镜像标签**: `9.0.x-dw`
+- **JDK**: 阿里 Dragonwell 8（自动获取最新版）
 
 ### BellSoft JDK
 
 - **Workflow**: `.github/workflows/build-bellsoft.yml`
-- **Tag**: `v9.0.x-bs`
-- **JDK**: BellSoft Liberica 8 (auto-fetch latest)
+- **镜像标签**: `9.0.x-bs`
+- **JDK**: BellSoft Liberica 8（自动获取最新版）
 
-## Images
+## 镜像
 
-- `images/tomcat/` - Tomcat Docker image configuration
+- `images/tomcat/` - Tomcat Docker 镜像配置
 
-## Registry
+## 仓库
 
-- **Registry**: `registry.cn-hangzhou.aliyuncs.com`
-- **Image Name**: `saisi/tomcat`
+- **仓库**: `registry.cn-hangzhou.aliyuncs.com`
+- **镜像名**: `saisi/tomcat`
 
-## Usage
+## 使用方法
 
-### Trigger by Issue
+### 通过 Issue 触发
 
-Create a new issue with title containing the version number:
+创建一个新的 issue，标题中包含版本号：
 
 ```
 Build 9.0.115
 ```
 
-This will automatically build both Dragonwell and BellSoft variants.
+或
 
-### Manual Trigger
+```
+请构建 9.0.116 版本
+```
 
-1. Go to Actions tab
-2. Select the workflow (`Build and Push Dragonwell Image` or `Build and Push BellSoft Image`)
-3. Click "Run workflow"
-4. Select branch (usually `main`)
-5. Click "Run workflow"
+这将自动触发两个 JDK 版本的构建。
 
-## Pull Images
+### 手动触发
+
+1. 进入 Actions 标签
+2. 选择对应的 workflow
+   - `Build and Push Dragonwell Image` (Dragonwell JDK)
+   - `Build and Push BellSoft Image` (BellSoft JDK)
+3. 点击 "Run workflow"
+4. 选择分支（通常用 `main`）
+5. 点击 "Run workflow"
+
+## 拉取镜像
 
 ```bash
 # Dragonwell JDK
@@ -55,17 +63,17 @@ docker pull registry.cn-hangzhou.aliyuncs.com/saisi/tomcat:9.0.115-dw
 docker pull registry.cn-hangzhou.aliyuncs.com/saisi/tomcat:9.0.115-bs
 ```
 
-## Environment Variables
+## 环境变量
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `HTTP_PORT` | HTTP Port | 9080 |
-| `HTTPS_PORT` | HTTPS Port | 9443 |
-| `CONN_TIMEOUT` | Connection Timeout (ms) | 5000 |
-| `SERVER_NAME` | Server Header | Web Server |
-| `HEADER_SIZE` | Request Header Size | 8192 |
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `HTTP_PORT` | HTTP 端口 | 9080 |
+| `HTTPS_PORT` | HTTPS 端口 | 9443 |
+| `CONN_TIMEOUT` | 连接超时 (ms) | 5000 |
+| `SERVER_NAME` | Server 头 | Web Server |
+| `HEADER_SIZE` | 请求头大小 | 8192 |
 
-## Ports
+## 端口
 
 - 9080 (HTTP)
 - 9443 (HTTPS)
