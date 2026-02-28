@@ -140,8 +140,6 @@ jobs:
           push: true
           build-args: |
             BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
-            JDK_TAR_AMD64=Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_x64_linux.tar.gz
-            JDK_TAR_ARM64=Alibaba_Dragonwell_Standard_${{ needs.get-versions.outputs.dragonwell_version }}_aarch64_linux.tar.gz
             TOMCAT_TAR=${{ needs.prepare-tomcat.outputs.tomcat_tar }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.get-versions.outputs.tomcat_version }}-dw

@@ -1,13 +1,11 @@
 ARG BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/aliyun_ago/kylin:v10-sp3-2403
 FROM ${BASE_IMAGE} AS build
 
-ARG JDK_TAR_AMD64
-ARG JDK_TAR_ARM64
 ARG TOMCAT_TAR
 
-# Copy both JDK tarballs - buildx will only use the one for current platform
-COPY ${JDK_TAR_AMD64} /tmp/jdk-amd64.tar.gz
-COPY ${JDK_TAR_ARM64} /tmp/jdk-arm64.tar.gz
+# Copy JDK tarballs for both architectures
+COPY Alibaba_Dragonwell_Standard_*_x64_linux.tar.gz /tmp/jdk-amd64.tar.gz
+COPY Alibaba_Dragonwell_Standard_*_aarch64_linux.tar.gz /tmp/jdk-arm64.tar.gz
 COPY ${TOMCAT_TAR} /tmp/tomcat.tar.gz
 
 # Detect architecture and use appropriate JDK
